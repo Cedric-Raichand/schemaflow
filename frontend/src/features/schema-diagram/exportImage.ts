@@ -1,32 +1,32 @@
-import dagre from 'dagre'
-import type { SchemaModel, Table } from '../../types/schema'
-import type { Positions } from '../../services/storage'
+import { getNodesBounds, getViewportForBounds, type Node } from '@xyflow/react'
+import { toPng } from 'html-to-image'
 
-export const NODE_WIDTH = 250
-export const MAX_ROWS = 10
-const HEADER = 38
-const ROW = 24
-const FOOTER = 22
-
-export function nodeHeight(t: Table): number {
-  const rows = Math.min(t.columns.length, MAX_ROWS)
-  return HEADER + rows * ROW + (t.columns.length > MAX_ROWS ? FOOTER : 0) + 8
+/** Renders the whole diagram (not just the visible part) to a PNG download. */
+export async function downloadDiagramPng(nodes: Node[], filename: string) {
+  const el = document.querySelector<HTMLElement>('.react-flow__viewport')
+  if (!el || nodes.length === 0) throw new Error('Nothing to export.')
+  const width = 2400
+  const bounds = getNodesBounds(nodes)
+  const height = Math.max(600, Math.round((width * bounds.height) / Math.max(bounds.width, 1)))
+  const vp = getViewportForBounds(bounds, width, height, 0.05, 2, 0.05)
+  const dataUrl = await toPng(el, {
+    backgroundColor: '#0b0e14',
+    width,
+    height: Math.min(height, 6000),
+    style: { width: `${width}px`, height: `${height}px`, transform: `translate(${vp.x}px, ${vp.y}px) scale(${vp.zoom})` },
+  })
+  download(dataUrl, filename)
 }
 
-/** Left-to-right auto layout. Saved positions override computed ones. */
-export function computeLayout(model: SchemaModel, saved: Positions): Positions {
-  const g = new dagre.graphlib.Graph()
-  g.setGraph({ rankdir: 'LR', nodesep: 40, ranksep: 110, marginx: 20, marginy: 20 })
-  g.setDefaultEdgeLabel(() => ({}))
-  for (const t of model.tables) g.setNode(t.id, { width: NODE_WIDTH, height: nodeHeight(t) })
-  for (const r of model.relationships) {
-    if (r.fromTable !== r.toTable) g.setEdge(r.fromTable, r.toTable)
-  }
-  dagre.layout(g)
-  const out: Positions = {}
-  for (const t of model.tables) {
-    const n = g.node(t.id)
-    out[t.id] = saved[t.id] ?? { x: n.x - NODE_WIDTH / 2, y: n.y - nodeHeight(t) / 2 }
-  }
-  return out
+export function download(href: string, filename: string) {
+  const a = document.createElement('a')
+  a.href = href
+  a.download = filename
+  a.click()
+}
+
+export function downloadText(text: string, filename: string, mime: string) {
+  const url = URL.createObjectURL(new Blob([text], { type: mime }))
+  download(url, filename)
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
