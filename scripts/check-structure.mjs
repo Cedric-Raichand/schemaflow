@@ -17,23 +17,24 @@ if (!existsSync('package.json') || !readFileSync('package.json', 'utf8').include
 
 // 1. Files that must exist
 const files = [
-    '.gitignore', 'package.json', 'samples/pharmacy.sql',
+  '.gitignore', 'package.json', 'samples/pharmacy.sql', 'samples/pharmacy.v2.sql',
   'backend/package.json', 'backend/tsconfig.json',
   'backend/src/app.ts', 'backend/src/routes/index.ts', 'backend/src/routes/connections.ts',
   'backend/src/types/schema.ts', 'backend/src/validators/schemaModel.ts', 'backend/src/validators/connection.ts',
-  'backend/src/services/schemaBuilder.ts',
+  'backend/src/services/schemaBuilder.ts', 'backend/src/types/diff.ts', 'backend/src/services/comparison/diff.ts',
   'backend/src/services/importers/sqlImporter.ts', 'backend/src/services/exporters/markdownExporter.ts',
   'backend/src/services/introspection/hostGuard.ts', 'backend/src/services/introspection/errors.ts',
   'backend/src/services/introspection/postgres.ts',
   'backend/tests/sqlImporter.test.ts', 'backend/tests/api.test.ts',
-  'backend/tests/hostGuard.test.ts', 'backend/tests/connection.test.ts',
+  'backend/tests/hostGuard.test.ts', 'backend/tests/connection.test.ts', 'backend/tests/diff.test.ts',
   'frontend/package.json', 'frontend/index.html', 'frontend/vite.config.ts',
   'frontend/tsconfig.json', 'frontend/tsconfig.app.json', 'frontend/tsconfig.node.json',
   'frontend/public/pharmacy.sample.sql',
   'frontend/src/main.tsx', 'frontend/src/App.tsx', 'frontend/src/index.css',
   'frontend/src/pages/Workspace.tsx',
-  'frontend/src/services/api.ts', 'frontend/src/services/storage.ts', 'frontend/src/types/schema.ts',
+  'frontend/src/services/api.ts', 'frontend/src/services/storage.ts', 'frontend/src/types/schema.ts', 'frontend/src/types/diff.ts',
   'frontend/src/features/search/search.ts',
+  'frontend/src/features/schema-comparison/ComparePanel.tsx', 'frontend/src/features/schema-comparison/diffMarkdown.ts',
   'frontend/src/features/connections/ImportPanel.tsx', 'frontend/src/features/connections/ConnectPanel.tsx',
   'frontend/src/features/table-explorer/Inspector.tsx',
   'frontend/src/features/schema-diagram/SchemaDiagram.tsx', 'frontend/src/features/schema-diagram/TableNode.tsx',
@@ -49,6 +50,9 @@ for (const w of ['tests', 'src', 'index.html', 'App.tsx', 'services']) {
   if (existsSync(w)) bad('MISPLACED', `${w} is in the root folder`, 'it belongs inside backend/ or frontend/')
 }
 if (missing === 0) console.log('  ✓ all present and non-empty')
+for (const o of ['README.md', 'docs/read-only-role.md']) {
+  if (!existsSync(o)) console.log(`  ℹ optional, not added yet: ${o}`)
+}
 
 // 2. Files exist but might be OLD versions (a new file saved over the wrong place, or not replaced)
 const markers = [
@@ -59,7 +63,9 @@ const markers = [
   ['frontend/src/features/connections/ConnectPanel.tsx', 'introspectConnection'],
   ['frontend/src/features/schema-diagram/exportImage.ts', 'downloadDiagramPng'],
   ['frontend/src/features/schema-diagram/exportImage.ts', 'downloadText'],
-  ['frontend/src/index.css', '.connect '], ['backend/package.json', '"dev"'],
+  ['frontend/src/index.css', '.connect '], ['frontend/src/index.css', '.modal-backdrop'],
+  ['backend/src/routes/index.ts', '/compare'], ['frontend/src/services/api.ts', 'compareSchemas'],
+  ['frontend/src/services/storage.ts', 'saveSnapshot'], ['frontend/src/pages/Workspace.tsx', 'ComparePanel'], ['backend/package.json', '"dev"'],
 ]
 section('2. File contents are the latest versions')
 let stale = 0
