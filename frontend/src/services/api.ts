@@ -1,4 +1,4 @@
-import type { Dialect, SchemaModel } from '../types/schema'
+import type { ConnectionParams, Dialect, SchemaModel } from '../types/schema'
 
 async function parse<T>(res: Response): Promise<T> {
   if (res.ok) return res.json() as Promise<T>
@@ -35,4 +35,23 @@ export async function exportMarkdown(model: SchemaModel, projectName: string): P
   })
   if (!res.ok) return parse<string>(res)
   return res.text()
+}
+
+export interface ConnectionInfo {
+  ok: true
+  serverVersion: string
+  database: string
+  user: string
+  warnings: string[]
+}
+
+const post = (url: string, body: unknown) =>
+  fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+
+export async function testConnection(params: ConnectionParams): Promise<ConnectionInfo> {
+  return parse<ConnectionInfo>(await post('/api/connections/test', params))
+}
+
+export async function introspectConnection(params: ConnectionParams): Promise<SchemaModel> {
+  return parse<SchemaModel>(await post('/api/connections/introspect', params))
 }
