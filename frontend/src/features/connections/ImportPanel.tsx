@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { importSqlFile, importSqlText } from '../../services/api'
+import { ConnectPanel } from './ConnectPanel'
 import { deleteProject, listProjects, type SavedProject } from '../../services/storage'
 import type { Dialect, SchemaModel } from '../../types/schema'
 
@@ -74,6 +75,8 @@ export function ImportPanel({ onLoaded, onOpenSaved }: Props) {
         {error && <p className="error" role="alert">{error}</p>}
         <p className="hint">Tip: export structure only, e.g. <code>pg_dump --schema-only</code> or <code>mysqldump --no-data</code>. No data is needed.</p>
       </section>
+
+      <ConnectPanel onLoaded={onLoaded} />
 
       {saved.length > 0 && (
         <section className="card">
