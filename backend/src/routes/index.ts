@@ -3,6 +3,7 @@ import multer from 'multer';
 import { importSql, SqlImportError } from '../services/importers/sqlImporter.js';
 import { toMarkdown } from '../services/exporters/markdownExporter.js';
 import { isSchemaModel } from '../validators/schemaModel.js';
+import { diffSchemas } from '../services/comparison/diff.js';
 import type { Dialect } from '../types/schema.js';
 
 export const MAX_SQL_BYTES = 2 * 1024 * 1024; // 2 MB cap on uploaded schema files
@@ -36,4 +37,10 @@ router.post('/export/markdown', (req, res) => {
   if (!isSchemaModel(model)) return res.status(400).json({ error: 'Invalid schema model.' });
   const name = typeof projectName === 'string' ? projectName.slice(0, 80) : 'Schema';
   res.type('text/markdown').send(toMarkdown(model, name));
+});
+
+router.post('/compare', (req, res) => {
+  const { base, next } = req.body ?? {};
+  if (!isSchemaModel(base) || !isSchemaModel(next)) return res.status(400).json({ error: 'Both schemas must be valid.' });
+  return res.json(diffSchemas(base, next));
 });
