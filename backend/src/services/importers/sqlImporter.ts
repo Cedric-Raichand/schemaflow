@@ -2,6 +2,7 @@ import pkg from 'node-sql-parser';
 import type {
   Column, Dialect, IndexInfo, Relationship, SchemaModel, Table,
 } from '../../types/schema.js';
+import { finalizeModel } from '../schemaBuilder.js';
 
 const { Parser } = pkg;
 const parser = new Parser();
@@ -167,75 +168,9 @@ export function importSql(sql: string, dialect: Dialect = 'postgresql'): SchemaM
     }
   }
 
-  // Drop FKs pointing at tables that don't exist in the import (keep the table list honest)
-  const valid: Relationship[] = [];
-  for (const r of relationships) {
-    if (!tables.has(r.fromTable)) continue;
-    if (!tables.has(r.toTable)) {
-      warnings.push(`Foreign key on "${r.fromTable}" references "${r.toTable}", which is not in the imported schema.`);
-      continue;
-    }
-    valid.push(r);
-  }
-
-  // Mark FK columns, refine cardinality
-  for (const r of valid) {
-    const t = tables.get(r.fromTable)!;
-    for (const c of r.fromColumns) {
-      const col = t.columns.find((x) => x.name === c);
-      if (col) col.isForeignKey = true;
-    }
-    const oneToOne = r.fromColumns.length === 1
-      && (uniqueCols.get(r.fromTable)!.has(r.fromColumns[0])
-        || (t.primaryKey.length === 1 && t.primaryKey[0] === r.fromColumns[0]));
-    r.cardinality = oneToOne ? 'one-to-one' : 'one-to-many';
-  }
-
-  // Junction detection: composite PK made entirely of FK columns, or exactly 2 FKs and little else
-  for (const t of tables.values()) {
-    const fks = valid.filter((r) => r.fromTable === t.id);
-    const fkCols = new Set(fks.flatMap((r) => r.fromColumns));
-    const pkAllFk = t.primaryKey.length >= 2 && t.primaryKey.every((c) => fkCols.has(c));
-    const twoFkSlim = fks.length === 2 && t.columns.filter((c) => !fkCols.has(c.name) && !c.isPrimaryKey).length <= 1;
-    t.isLikelyJunction = pkAllFk || twoFkSlim;
-  }
-
-  // Inferred (unconfirmed) relationships from naming: user_id / userId -> users/user table
-  const byName = new Map<string, Table>();
-  for (const t of tables.values()) byName.set(t.name.toLowerCase().replace(/_/g, ''), t);
-  const explicitCols = new Set(valid.flatMap((r) => r.fromColumns.map((c) => `${r.fromTable}.${c}`)));
-  for (const t of tables.values()) {
-    for (const c of t.columns) {
-      if (c.isPrimaryKey || explicitCols.has(`${t.id}.${c.name}`)) continue;
-      const m = /^(.+?)(?:_id|Id)$/.exec(c.name);
-      if (!m) continue;
-      const stem = m[1].toLowerCase().replace(/_/g, '');
-      const target = byName.get(stem) ?? byName.get(`${stem}s`) ?? byName.get(`${stem}es`);
-      if (!target || target.id === t.id || !target.primaryKey.length) continue;
-      valid.push({
-        id: `inferred:${t.id}.${c.name}->${target.id}.${target.primaryKey[0]}`,
-        name: null,
-        source: 'inferred',
-        fromTable: t.id,
-        fromColumns: [c.name],
-        toTable: target.id,
-        toColumns: [target.primaryKey[0]],
-        cardinality: 'one-to-many',
-        onDelete: null,
-        onUpdate: null,
-      });
-    }
-  }
-
   if (tables.size === 0) {
     throw new SqlImportError('No CREATE TABLE statements were found in the file.');
   }
 
-  return {
-    dialect,
-    importedAt: new Date().toISOString(),
-    tables: [...tables.values()],
-    relationships: valid,
-    warnings,
-  };
+  return finalizeModel({ dialect, tables: [...tables.values()], relationships, uniqueCols, warnings });
 }
