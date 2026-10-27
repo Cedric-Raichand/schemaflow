@@ -51,3 +51,35 @@ export const saveLayout = (projectId: string, p: Positions) => write(`schemaflow
 export const clearLayout = (projectId: string) => {
   try { localStorage.removeItem(`schemaflow:layout:${projectId}`) } catch { /* ignore */ }
 }
+
+// ---- Snapshots: saved copies of a schema, used for comparison ----
+export interface Snapshot {
+  id: string
+  label: string
+  projectName: string
+  savedAt: string
+  model: SchemaModel
+}
+
+const SNAPSHOTS = 'schemaflow:snapshots'
+const MAX_SNAPSHOTS = 10
+
+export const listSnapshots = (): Snapshot[] => read<Snapshot[]>(SNAPSHOTS, [])
+
+/** Returns null if the browser has no room left (oldest snapshots are dropped first to make space). */
+export function saveSnapshot(label: string, projectName: string, model: SchemaModel): Snapshot | null {
+  const snap: Snapshot = {
+    id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+    label: label.trim().slice(0, 80) || 'Snapshot',
+    projectName,
+    savedAt: new Date().toISOString(),
+    model,
+  }
+  const next = [snap, ...listSnapshots()].slice(0, MAX_SNAPSHOTS)
+  while (next.length && !write(SNAPSHOTS, next)) next.pop()
+  return next.includes(snap) ? snap : null
+}
+
+export function deleteSnapshot(id: string) {
+  write(SNAPSHOTS, listSnapshots().filter((s) => s.id !== id))
+}
