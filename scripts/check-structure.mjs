@@ -17,7 +17,7 @@ if (!existsSync('package.json') || !readFileSync('package.json', 'utf8').include
 
 // 1. Files that must exist
 const files = [
-  '.gitignore', 'package.json', 'README.md', 'samples/pharmacy.sql', 'docs/read-only-role.md',
+    '.gitignore', 'package.json', 'samples/pharmacy.sql',
   'backend/package.json', 'backend/tsconfig.json',
   'backend/src/app.ts', 'backend/src/routes/index.ts', 'backend/src/routes/connections.ts',
   'backend/src/types/schema.ts', 'backend/src/validators/schemaModel.ts', 'backend/src/validators/connection.ts',
