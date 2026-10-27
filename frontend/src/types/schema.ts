@@ -50,3 +50,17 @@ export interface SchemaModel {
   relationships: Relationship[];
   warnings: string[];
 }
+
+export type SslMode = 'disable' | 'require' | 'verify';
+
+/** Credentials for a live connection. Never stored, never logged, never returned. */
+export interface ConnectionParams {
+  host: string;
+  port: number;
+  database: string;
+  user: string;
+  password: string;
+  sslMode: SslMode;
+  /** Schemas to read. ['*'] = every non-system schema. */
+  schemas: string[];
+}
