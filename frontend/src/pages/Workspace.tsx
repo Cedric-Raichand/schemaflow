@@ -1,7 +1,8 @@
 import { useReactFlow } from '@xyflow/react'
 import { useMemo, useState } from 'react'
 import { exportMarkdown } from '../services/api'
-import { clearLayout } from '../services/storage'
+import { clearLayout, saveSnapshot } from '../services/storage'
+import { ComparePanel } from '../features/schema-comparison/ComparePanel'
 import { Inspector } from '../features/table-explorer/Inspector'
 import { SchemaDiagram } from '../features/schema-diagram/SchemaDiagram'
 import { downloadDiagramPng, downloadText } from '../features/schema-diagram/exportImage'
@@ -25,7 +26,10 @@ export function Workspace({ name, projectId, model, onClose }: Props) {
   const [layoutVersion, setLayoutVersion] = useState(0)
   const [focusTick, setFocusTick] = useState(0)
   const [showWarnings, setShowWarnings] = useState(false)
-  const [notice, setNotice] = useState<string | null>(null)
+  const [notice, setNotice] = useState<{ text: string; error: boolean } | null>(null)
+  const [showCompare, setShowCompare] = useState(false)
+  const [naming, setNaming] = useState(false)
+  const [snapLabel, setSnapLabel] = useState('')
 
   const results = useMemo(() => searchSchema(model, query), [model, query])
   const matches = useMemo(
@@ -37,7 +41,18 @@ export function Workspace({ name, projectId, model, onClose }: Props) {
   const inferredCount = model.relationships.filter((r) => r.source === 'inferred').length
 
   const pick = (id: string) => { setSelectedId(id); setFocusTick((n) => n + 1) }
-  const flash = (m: string) => { setNotice(m); setTimeout(() => setNotice(null), 3500) }
+  const flash = (text: string, error = true) => { setNotice({ text, error }); setTimeout(() => setNotice(null), 3500) }
+
+  function startSnapshot() {
+    setSnapLabel(`${name} · ${new Date().toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} ${new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}`)
+    setNaming(true)
+  }
+  function confirmSnapshot() {
+    const snap = saveSnapshot(snapLabel, name, model)
+    setNaming(false)
+    if (snap) flash(`Snapshot saved: ${snap.label}`, false)
+    else flash('Could not save the snapshot: browser storage is full.')
+  }
 
   async function run(label: string, fn: () => Promise<void> | void) {
     try { await fn() } catch (e) { flash(`${label} failed: ${e instanceof Error ? e.message : 'unknown error'}`) }
@@ -61,6 +76,16 @@ export function Workspace({ name, projectId, model, onClose }: Props) {
         {model.warnings.length > 0 && <button className="btn ghost warn" onClick={() => setShowWarnings((v) => !v)}>⚠ {model.warnings.length}</button>}
         <button className="btn ghost" onClick={() => fitView({ padding: 0.15, duration: 300 })}>Fit</button>
         <button className="btn ghost" onClick={() => { clearLayout(projectId); setLayoutVersion((v) => v + 1) }}>Reset layout</button>
+        {naming ? (
+          <form className="snapform" onSubmit={(e) => { e.preventDefault(); confirmSnapshot() }}>
+            <input autoFocus value={snapLabel} onChange={(e) => setSnapLabel(e.target.value)} maxLength={80} aria-label="Snapshot name" />
+            <button className="btn primary" type="submit">Save</button>
+            <button className="btn ghost" type="button" onClick={() => setNaming(false)}>Cancel</button>
+          </form>
+        ) : (
+          <button className="btn" onClick={startSnapshot} title="Save this schema so you can compare it with a later version">Snapshot</button>
+        )}
+        <button className="btn" onClick={() => setShowCompare(true)}>Compare</button>
         <button className="btn" onClick={() => run('PNG export', () => downloadDiagramPng(getNodes(), `${slug(name)}.png`))}>PNG</button>
         <button className="btn" onClick={() => downloadText(JSON.stringify(model, null, 2), `${slug(name)}.json`, 'application/json')}>JSON</button>
         <button className="btn" onClick={() => run('Markdown export', async () => downloadText(await exportMarkdown(model, name), `${slug(name)}.md`, 'text/markdown'))}>Markdown</button>
@@ -69,7 +94,8 @@ export function Workspace({ name, projectId, model, onClose }: Props) {
       {showWarnings && (
         <div className="warnings"><ul>{model.warnings.map((w, i) => <li key={i}>{w}</li>)}</ul></div>
       )}
-      {notice && <div className="toast" role="status">{notice}</div>}
+      {notice && <div className={`toast${notice.error ? ' err' : ''}`} role="status">{notice.text}</div>}
+      {showCompare && <ComparePanel currentName={name} currentModel={model} onClose={() => setShowCompare(false)} />}
 
       <div className="body">
         <nav className="sidebar" aria-label="Tables">
