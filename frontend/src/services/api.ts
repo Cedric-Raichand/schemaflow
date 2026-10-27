@@ -1,3 +1,4 @@
+import type { SchemaDiff } from '../types/diff'
 import type { ConnectionParams, Dialect, SchemaModel } from '../types/schema'
 
 async function parse<T>(res: Response): Promise<T> {
@@ -54,4 +55,8 @@ export async function testConnection(params: ConnectionParams): Promise<Connecti
 
 export async function introspectConnection(params: ConnectionParams): Promise<SchemaModel> {
   return parse<SchemaModel>(await post('/api/connections/introspect', params))
+}
+
+export async function compareSchemas(base: SchemaModel, next: SchemaModel): Promise<SchemaDiff> {
+  return parse<SchemaDiff>(await post('/api/compare', { base, next }))
 }
