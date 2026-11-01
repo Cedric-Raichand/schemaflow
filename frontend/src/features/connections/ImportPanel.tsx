@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react'
-import { importSqlFile, importSqlText } from '../../services/api'
+import { useEffect, useRef, useState } from 'react'
+import { getConfig, importSqlFile, importSqlText, type ServerConfig } from '../../services/api'
 import { ConnectPanel } from './ConnectPanel'
 import { deleteProject, listProjects, type SavedProject } from '../../services/storage'
 import type { Dialect, SchemaModel } from '../../types/schema'
@@ -16,7 +16,10 @@ export function ImportPanel({ onLoaded, onOpenSaved }: Props) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState<SavedProject[]>(listProjects)
+  const [config, setConfig] = useState<ServerConfig | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => { getConfig().then(setConfig) }, [])
 
   async function run(fn: () => Promise<SchemaModel>, projectName = name) {
     setBusy(true)
@@ -76,7 +79,17 @@ export function ImportPanel({ onLoaded, onOpenSaved }: Props) {
         <p className="hint">Tip: export structure only, e.g. <code>pg_dump --schema-only</code> or <code>mysqldump --no-data</code>. No data is needed.</p>
       </section>
 
-      <ConnectPanel onLoaded={onLoaded} />
+      {config?.demoMode ? (
+        <section className="card">
+          <h2>Live database connections</h2>
+          <p className="hint" style={{ margin: 0 }}>
+            Turned off on this public demo, so nobody has to type database credentials into a website.
+            Run SchemaFlow locally to connect to your own PostgreSQL database.
+          </p>
+        </section>
+      ) : (
+        <ConnectPanel onLoaded={onLoaded} />
+      )}
 
       {saved.length > 0 && (
         <section className="card">
