@@ -1,0 +1,19 @@
+# Render Blueprint: one web service that serves both the API and the website.
+services:
+  - type: web
+    name: schemaflow
+    runtime: node
+    plan: free
+    # --include=dev because the build needs TypeScript and Vite.
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm run start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: NODE_ENV
+        value: production
+      - key: SCHEMAFLOW_DEMO_MODE
+        value: "true"
+      - key: SCHEMAFLOW_TRUST_PROXY
+        value: "1"

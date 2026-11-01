@@ -26,7 +26,7 @@ const files = [
   'backend/src/services/introspection/hostGuard.ts', 'backend/src/services/introspection/errors.ts',
   'backend/src/services/introspection/postgres.ts',
   'backend/tests/sqlImporter.test.ts', 'backend/tests/api.test.ts',
-  'backend/tests/hostGuard.test.ts', 'backend/tests/connection.test.ts', 'backend/tests/diff.test.ts', 'backend/tests/demo.test.ts', '.github/workflows/ci.yml',
+  'backend/tests/hostGuard.test.ts', 'backend/tests/connection.test.ts', 'backend/tests/diff.test.ts', 'backend/tests/demo.test.ts', '.github/workflows/ci.yml', 'render.yaml',
   'frontend/package.json', 'frontend/index.html', 'frontend/vite.config.ts',
   'frontend/tsconfig.json', 'frontend/tsconfig.app.json', 'frontend/tsconfig.node.json',
   'frontend/public/pharmacy.sample.sql', 'frontend/public/pharmacy.v2.sample.sql',

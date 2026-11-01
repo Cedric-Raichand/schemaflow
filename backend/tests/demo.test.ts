@@ -1,4 +1,6 @@
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import { createApp } from '../src/app.js';
@@ -48,5 +50,30 @@ describe('global API rate limit', () => {
     const codes: number[] = [];
     for (let i = 0; i < 6; i++) codes.push((await request(app).get('/api/health')).status);
     expect(codes).toEqual([200, 200, 200, 200, 429, 429]);
+  });
+});
+
+describe('serving the built website', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'sf-static-'));
+  writeFileSync(path.join(dir, 'index.html'), '<!doctype html><title>SchemaFlow</title><div id="root"></div>');
+  const app = createApp({ demoMode: true, staticDir: dir });
+
+  it('serves the page for GET and HEAD, with security headers', async () => {
+    for (const method of ['get', 'head'] as const) {
+      const res = await request(app)[method]('/');
+      expect(res.status).toBe(200);
+      expect(res.headers['content-security-policy']).toMatch(/default-src 'self'/);
+      expect(res.headers['x-frame-options']).toBe('DENY');
+      expect(res.headers['x-content-type-options']).toBe('nosniff');
+    }
+  });
+  it('falls back to the page for unknown routes, but never for /api', async () => {
+    expect((await request(app).get('/some/page')).text).toContain('SchemaFlow');
+    const api = await request(app).get('/api/does-not-exist');
+    expect(api.status).toBe(404);
+    expect(api.text).not.toContain('SchemaFlow');
+  });
+  it('does not serve a website unless asked to', async () => {
+    expect((await request(createApp({ demoMode: true })).get('/')).status).toBe(404);
   });
 });

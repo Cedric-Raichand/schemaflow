@@ -1,3 +1,6 @@
+import { existsSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import cors from 'cors';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import rateLimit from 'express-rate-limit';
@@ -11,11 +14,22 @@ export interface AppOptions {
   resolver?: Resolver;
   /** Public demo: live database connections are switched off. Defaults to SCHEMAFLOW_DEMO_MODE=true. */
   demoMode?: boolean;
+  /** Folder containing the built frontend (index.html). When set, the backend also serves the website. */
+  staticDir?: string;
+}
+
+/** SCHEMAFLOW_TRUST_PROXY: number of proxies in front of the app (1 on Render/Railway/Fly). Needed for correct client IPs. */
+function trustProxySetting(v = process.env.SCHEMAFLOW_TRUST_PROXY): number | false {
+  if (!v || v === 'false') return false;
+  if (v === 'true') return 1;
+  const n = Number(v);
+  return Number.isInteger(n) && n >= 0 ? n : false;
 }
 
 export function createApp(opts: AppOptions = {}) {
   const app = express();
   app.disable('x-powered-by');
+  app.set('trust proxy', trustProxySetting());
   app.use(cors({ origin: process.env.CORS_ORIGIN ?? 'http://localhost:5173' }));
   app.use(express.json({ limit: '5mb' }));
 
@@ -43,6 +57,24 @@ export function createApp(opts: AppOptions = {}) {
     app.use('/api/connections', createConnectionRouter(opts.policy ?? policyFromEnv(), opts.resolver));
   }
 
+  if (opts.staticDir) {
+    const indexFile = path.join(opts.staticDir, 'index.html');
+    app.use((_req, res, next) => {
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.setHeader('X-Frame-Options', 'DENY');
+      res.setHeader('Referrer-Policy', 'no-referrer');
+      res.setHeader('Content-Security-Policy',
+        "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'");
+      next();
+    });
+    app.use(express.static(opts.staticDir, { index: false, maxAge: '1h' }));
+    // Single-page app: any other page request gets index.html. Unknown /api paths stay real 404s.
+    app.use((req, res, next) => {
+      if ((req.method !== 'GET' && req.method !== 'HEAD') || req.path.startsWith('/api')) return next();
+      return res.sendFile(indexFile);
+    });
+  }
+
   // Never leak internals or request bodies (they may contain schema / credentials later).
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
     if (err instanceof multer.MulterError) {
@@ -62,5 +94,9 @@ export function createApp(opts: AppOptions = {}) {
 
 if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href) {
   const port = Number(process.env.PORT ?? 4000);
-  createApp().listen(port, () => console.log(`SchemaFlow API listening on :${port}`));
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const candidate = process.env.SCHEMAFLOW_STATIC_DIR ?? (process.env.NODE_ENV === 'production' ? path.resolve(here, '../../frontend/dist') : undefined);
+  const staticDir = candidate && existsSync(path.join(candidate, 'index.html')) ? candidate : undefined;
+  if (process.env.NODE_ENV === 'production' && !staticDir) console.warn('No built frontend found; serving the API only.');
+  createApp({ staticDir }).listen(port, () => console.log(`SchemaFlow listening on :${port}${staticDir ? ' (serving the website too)' : ''}`));
 }
