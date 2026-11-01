@@ -60,3 +60,17 @@ export async function introspectConnection(params: ConnectionParams): Promise<Sc
 export async function compareSchemas(base: SchemaModel, next: SchemaModel): Promise<SchemaDiff> {
   return parse<SchemaDiff>(await post('/api/compare', { base, next }))
 }
+
+export interface ServerConfig {
+  demoMode: boolean
+  liveConnections: boolean
+}
+
+/** If the server cannot be reached or is an older version, assume everything is available. */
+export async function getConfig(): Promise<ServerConfig> {
+  try {
+    const res = await fetch('/api/config')
+    if (res.ok) return (await res.json()) as ServerConfig
+  } catch { /* fall through */ }
+  return { demoMode: false, liveConnections: true }
+}
