@@ -1,11 +1,15 @@
 {
   "name": "schemaflow",
   "private": true,
-  "workspaces": ["backend", "frontend"],
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
   "scripts": {
     "dev:backend": "npm run dev -w backend",
     "dev:frontend": "npm run dev -w frontend",
     "build": "npm run build -w backend && npm run build -w frontend",
-    "test": "npm run test -w backend"
+    "test": "npm run test -w backend",
+    "start": "npm run start -w backend"
   }
 }
